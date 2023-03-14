@@ -5,5 +5,13 @@ services:
     volumes:
       - ${PWD}/public:/usr/src/app/public
       - ${PWD}/server.js:/usr/src/app/server.js
-    ports:
-      - 8080:8080
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.superquiz.rule=Host(`superquiz.willrobertson.id.au`)"
+      - "traefik.http.routers.superquiz.tls.certresolver=myresolver"
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    name: traefik_proxy

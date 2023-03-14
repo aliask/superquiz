@@ -41,14 +41,14 @@ function displayQuiz(json) {
 
     response += `<h3>Medium - 2 points</h3>`
     response += `<div class="accordion" id="accordionMedium">`
-    easy.forEach((question, index) => {
+    medium.forEach((question, index) => {
         response += display_question(question, index, "Medium")
     })
     response += `</div><hr>`
 
     response += `<h3>Hard - 3 points</h3>`
     response += `<div class="accordion" id="accordionHard">`
-    easy.forEach((question, index) => {
+    hard.forEach((question, index) => {
         response += display_question(question, index, "Hard")
     })
     response += `</div><hr>`
