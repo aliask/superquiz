@@ -1,0 +1,9 @@
+---
+services:
+  app:
+    build: .
+    volumes:
+      - ${PWD}/public:/usr/src/app/public
+      - ${PWD}/server.js:/usr/src/app/server.js
+    ports:
+      - 8080:8080
