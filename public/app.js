@@ -37,7 +37,7 @@ function wrong(button) {
     button.parentElement.parentElement.parentElement.parentElement.classList.remove("unanswered")
     button.parentElement.querySelector(".btn-outline-success").classList.remove("active")
     button.classList.add("active")
-    updatepoints()
+    updatePoints()
 }
 
 function display_question(question, index, difficulty) {
@@ -88,14 +88,14 @@ function displayQuiz(json) {
             response += display_question(question, index, "Easy")
         })
         response += `</div><hr>`
-    
+
         response += `<h3>Medium - 2 points</h3>`
         response += `<div class="accordion" id="accordionMedium">`
         medium.forEach((question, index) => {
             response += display_question(question, index, "Medium")
         })
         response += `</div><hr>`
-    
+
         response += `<h3>Hard - 3 points</h3>`
         response += `<div class="accordion" id="accordionHard">`
         hard.forEach((question, index) => {
@@ -104,6 +104,7 @@ function displayQuiz(json) {
         response += `</div><hr>`
     }
     document.querySelector("#quizContent").innerHTML = response
+    updatePoints()
 }
 
 function loadQuiz(url) {

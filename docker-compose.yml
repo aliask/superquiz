@@ -2,6 +2,7 @@
 services:
   app:
     build: .
+    restart: unless-stopped
     volumes:
       - ${PWD}/public:/usr/src/app/public
       - ${PWD}/server.js:/usr/src/app/server.js
