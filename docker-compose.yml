@@ -1,6 +1,6 @@
 ---
 services:
-  app:
+  superquiz:
     build: .
     restart: unless-stopped
     volumes:
@@ -16,3 +16,4 @@ services:
 networks:
   proxy:
     name: traefik_proxy
+    external: true
