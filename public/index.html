@@ -8,11 +8,13 @@
   </head>
   <body onload="loadCheck()">
     <div class="container">
-        <div class="input-group mb-3">
-            <span class="input-group-text" id="url-hint">SMH URL</span>
-            <input type="text" class="form-control" placeholder="https://www.smh.com.au/national/target-time-and-superquiz-..." aria-label="URL" aria-describedby="url-hint" id="url-textbox">
-            <button class="btn btn-outline-primary" type="button" id="load-button">Load</button>
-        </div>
+        <form method="GET">
+            <div class="input-group mb-3">
+                <span class="input-group-text" id="url-hint">SMH URL</span>
+                <input name="q" type="text" class="form-control" placeholder="https://www.smh.com.au/national/target-time-and-superquiz-..." aria-label="URL" aria-describedby="url-hint" id="url-textbox">
+                <button class="btn btn-outline-primary" type="button" id="load-button">Load</button>
+             </div>
+        </form>
         <div id="quizContent"></div>
         <h2 id="score" class="text-end"></h2>
     </div>

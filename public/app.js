@@ -122,15 +122,130 @@ function loadQuiz(url) {
         })
 }
 
+const tagQuery = `
+query TagIndexQuery(
+  $brand: String!
+  $count: Int!
+  $offset: Int
+  $render: Render
+  $tagID: ID!
+  $types: [AssetType!]
+  $newsroom: NewsroomType
+) {
+  tag: tag(brand: $brand, id: $tagID, newsroom: $newsroom)
+  {
+    ...TagIndexFragment_tagData
+    assetsConnection(
+      brand: $brand,
+      count: $count,
+      offset: $offset,
+      render: $render,
+      types: $types
+    ) {
+      ...AssetsConnectionFragment_showMoreDataWithPrimaryAndSecondaryTags
+    } id
+  }
+}
+
+fragment TagIndexFragment_tagData on Tag {
+  displayName
+  id
+}
+
+fragment AssetsConnectionFragment_showMoreDataWithPrimaryAndSecondaryTags on AssetsConnection {
+  assets {
+    ...AssetFragmentFragment_assetDataWithPrimaryAndSecondaryTags
+    id
+  }
+  pageInfo {
+    endCursor
+    hasNextPage
+  }
+}
+
+fragment AssetFragmentFragment_assetDataWithPrimaryAndSecondaryTags on Asset {
+  ...AssetFragmentFragment_assetData
+  category {
+    id
+    name
+  }
+  tags {
+    primary: primaryTag {
+      ...AssetFragment_tagFragment
+      id
+    }
+    secondary {
+      ...AssetFragment_tagFragment
+      id
+    }
+  }
+}
+
+fragment AssetFragmentFragment_assetData on Asset {
+  id
+  asset {
+    about
+    headlines {
+      headline
+    }
+  }
+  urls {
+    canonical { path }
+  }
+  dates {
+    modified
+    published
+  }
+}
+
+fragment AssetFragment_tagFragment on AssetTagDetails {
+  displayName
+}
+`
+
+async function fetchArticles() {
+  const smhGqlEndpoint = "https://api.smh.com.au/graphql"
+  const variables = {
+    "brand":"smh",
+    "count":5,
+    "newsroom":"METRO",
+    "offset":0,
+    "render":"WEB",
+    "tagID":"6guy",
+    "types": [
+      "article"
+    ]
+  }
+  let results = await fetch(smhGqlEndpoint, {
+    method: 'POST',
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      query: tagQuery,
+      variables
+    })
+  })
+  let tags = await results.json();
+  const path = tags.data.tag.assetsConnection.assets[0].urls.canonical.path
+  urlTextbox.value = "https://www.smh.com.au" + path
+}
+
 loadButton.addEventListener('click', event => {
     loadQuiz(urlTextbox.value)
 })
 
-function loadCheck() {
+urlTextbox.addEventListener('focus', event => {
+  urlTextbox.select();
+})
+
+async function loadCheck() {
     let params = new URL(window.location.href)
     q = params.searchParams.get("q")
     if(q) {
         urlTextbox.value = q
         window.setTimeout(loadQuiz, 0, urlTextbox.value)
+    } else {
+      fetchArticles()
     }
 }
