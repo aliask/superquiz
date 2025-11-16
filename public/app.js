@@ -107,17 +107,59 @@ function displayQuiz(json) {
     updatePoints()
 }
 
+function parseQuestionsFromDOM(html) {
+    // Create a temporary DOM parser
+    const parser = new DOMParser()
+    const doc = parser.parseFromString(html, 'text/html')
+
+    // Find all question and answer elements
+    const questionElements = doc.querySelectorAll('.quiz-question__question')
+    const answerElements = doc.querySelectorAll('.quiz-question__answer')
+
+    // Check if we found any questions
+    if(questionElements.length === 0) {
+        return null
+    }
+
+    // Build question data array
+    const questions = []
+    questionElements.forEach((questionEl, index) => {
+        if(answerElements[index]) {
+            questions.push({
+                question: questionEl.textContent.trim(),
+                answer: answerElements[index].innerHTML.trim(),
+                level: 1 // Default to level 1 (Easy) for DOM-parsed questions
+            })
+        }
+    })
+
+    // Return in the same format as the JSON API
+    return {
+        config: {
+            name: doc.querySelector('title')?.textContent || 'Quiz'
+        },
+        data: questions
+    }
+}
+
 function loadQuiz(url) {
     fetch('/smh?q=' + encodeURIComponent(url))
         .then(response => response.text())
         .then(data => {
+            // First, try to find JSON file (existing behavior)
             jsonFile = findJSONFile(data)
             if(jsonFile) {
                 fetch('/smh?q=' + encodeURIComponent(jsonFile))
                 .then(response => response.json())
                 .then(displayQuiz)
             } else {
-                alert("Couldn't find Quiz data on requested page.")
+                // If no JSON found, try parsing DOM elements
+                const domQuiz = parseQuestionsFromDOM(data)
+                if(domQuiz && domQuiz.data.length > 0) {
+                    displayQuiz(domQuiz)
+                } else {
+                    alert("Couldn't find Quiz data on requested page.")
+                }
             }
         })
 }
