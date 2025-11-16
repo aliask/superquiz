@@ -76,8 +76,8 @@ function displayQuiz(json) {
     hard = json.data.filter(item => item.level == 3)
 
     response = `<h2>${json.config.name}</h2>`
-    // If the level is not set, we just display all questions
-    if(easy.length == 0) {
+    // If there are no medium or hard questions, just display all questions without difficulty headers
+    if(medium.length == 0 && hard.length == 0) {
         response += `<div class="accordion" id="accordionEasy">`
         json.data.forEach((question, index) => {
             response += display_question(question, index, "Easy")
