@@ -1,5 +1,7 @@
 const loadButton = document.querySelector('#load-button')
 const urlTextbox = document.querySelector('#url-textbox')
+const smhLink = document.querySelector('#smh-link')
+const satPaperLink = document.querySelector('#sat-paper-link')
 
 function findJSONFile(payload) {
     let re = /https:\/\/www.smh.com.au\/interactive\/hub\/configs\/[a-z-]+quiz\/\d+.json/gi
@@ -245,7 +247,7 @@ fragment AssetFragment_tagFragment on AssetTagDetails {
 }
 `
 
-async function fetchArticles() {
+async function fetchSMHArticle() {
   const smhGqlEndpoint = "https://api.smh.com.au/graphql"
   const variables = {
     "brand":"smh",
@@ -270,11 +272,60 @@ async function fetchArticles() {
   })
   let tags = await results.json();
   const path = tags.data.tag.assetsConnection.assets[0].urls.canonical.path
-  urlTextbox.value = "https://www.smh.com.au" + path
+  return "https://www.smh.com.au" + path
+}
+
+async function fetchSaturdayPaperQuiz() {
+  try {
+    const response = await fetch('/smh?q=' + encodeURIComponent('https://www.thesaturdaypaper.com.au/quiz/'))
+    const html = await response.text()
+
+    // Parse the HTML
+    const parser = new DOMParser()
+    const doc = parser.parseFromString(html, 'text/html')
+
+    // Look for quiz URLs in the format /quiz/2025/11/15
+    const quizLinkRegex = /\/quiz\/\d{4}\/\d{2}\/\d{2}/g
+    const links = Array.from(doc.querySelectorAll('a')).map(a => a.getAttribute('href'))
+    const quizLinks = links.filter(link => link && quizLinkRegex.test(link))
+
+    if(quizLinks.length > 0) {
+      // Sort to get the most recent (assuming they're in chronological order in the URL)
+      quizLinks.sort().reverse()
+      return "https://www.thesaturdaypaper.com.au" + quizLinks[0]
+    }
+
+    return null
+  } catch (err) {
+    console.error('Error fetching Saturday Paper quiz:', err)
+    return null
+  }
 }
 
 loadButton.addEventListener('click', event => {
     loadQuiz(urlTextbox.value)
+})
+
+smhLink.addEventListener('click', async event => {
+    event.preventDefault()
+    const url = await fetchSMHArticle()
+    if(url) {
+        urlTextbox.value = url
+        loadQuiz(url)
+    } else {
+        alert("Couldn't fetch latest SMH quiz")
+    }
+})
+
+satPaperLink.addEventListener('click', async event => {
+    event.preventDefault()
+    const url = await fetchSaturdayPaperQuiz()
+    if(url) {
+        urlTextbox.value = url
+        loadQuiz(url)
+    } else {
+        alert("Couldn't fetch latest Saturday Paper quiz")
+    }
 })
 
 urlTextbox.addEventListener('focus', event => {
@@ -288,6 +339,9 @@ async function loadCheck() {
         urlTextbox.value = q
         window.setTimeout(loadQuiz, 0, urlTextbox.value)
     } else {
-      fetchArticles()
+      const url = await fetchSMHArticle()
+      if(url) {
+          urlTextbox.value = url
+      }
     }
 }
