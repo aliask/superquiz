@@ -1,0 +1,42 @@
+name: Build image
+on:
+  push:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          # git describe needs the tags, which a depth-1 checkout omits.
+          fetch-depth: 0
+
+      - name: Login to registry
+        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4
+        with:
+          registry: ${{ vars.IMAGE_REGISTRY }}
+          username: ${{ vars.REGISTRY_USERNAME}}
+          password: ${{ secrets.REGISTRY_TOKEN}}
+
+      - name: Get Meta
+        id: meta
+        run: |
+          echo REPO_VERSION=$(git describe --tags --always | sed 's/^v//') >> $GITHUB_OUTPUT
+
+      - name: Build and push
+        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7
+        with:
+          context: .
+          cache-from: type=registry,ref=${{ vars.IMAGE_REGISTRY }}/${{ github.repository }}:cache
+          cache-to: type=registry,ref=${{ vars.IMAGE_REGISTRY }}/${{ github.repository }}:cache,mode=max
+          # arm64 is what runs in production (oracloud is an Ampere VPS);
+          # amd64 is for running it locally.
+          platforms: |
+            linux/amd64
+            linux/arm64
+          # Every branch gets built, but only main is published.
+          push: ${{ github.ref == 'refs/heads/main' }}
+          tags: |
+            ${{ vars.IMAGE_REGISTRY }}/${{ github.repository }}:${{ steps.meta.outputs.REPO_VERSION }}
+            ${{ vars.IMAGE_REGISTRY }}/${{ github.repository }}:latest
