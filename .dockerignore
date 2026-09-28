@@ -1,6 +1,5 @@
 .git
 .gitea
-node_modules
 docker-compose.yml
 Dockerfile
 .dockerignore
