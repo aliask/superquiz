@@ -3,17 +3,5 @@ services:
   superquiz:
     build: .
     restart: unless-stopped
-    volumes:
-      - ${PWD}/public:/usr/src/app/public
-      - ${PWD}/server.js:/usr/src/app/server.js
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.superquiz.rule=Host(`superquiz.willrobertson.id.au`)"
-      - "traefik.http.routers.superquiz.tls.certresolver=myresolver"
-    networks:
-      - proxy
-
-networks:
-  proxy:
-    name: traefik_proxy
-    external: true
+    ports:
+      - 8080:8080
