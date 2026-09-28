@@ -1,19 +1,19 @@
-FROM node:18-alpine
+# Cross-compile on the build host rather than emulating the target platform
+FROM --platform=$BUILDPLATFORM golang:1.27-alpine AS build
+WORKDIR /src
+COPY go.mod ./
+COPY *.go ./
+COPY public ./public
+# Runs natively on the build host; the live integration tests run on a schedule instead
+ENV CGO_ENABLED=0
+RUN go test ./...
+ARG TARGETOS TARGETARCH
+RUN GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags='-s -w' -o /superquiz .
 
-# Create app directory
-WORKDIR /usr/src/app
-
-# Install app dependencies
-# A wildcard is used to ensure both package.json AND package-lock.json are copied
-# where available (npm@5+)
-COPY package*.json ./
-
-RUN npm install
-# If you are building your code for production
-# RUN npm ci --only=production
-
-# Bundle app source
-COPY . .
-
+FROM scratch
+# Needed to verify TLS for the sites the proxy fetches
+COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY --from=build /superquiz /superquiz
+USER 65534:65534
 EXPOSE 8080
-CMD [ "node", "server.js" ]
+ENTRYPOINT ["/superquiz"]
