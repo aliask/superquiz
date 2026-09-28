@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -32,9 +34,39 @@ func TestStaticFiles(t *testing.T) {
 		if resp.StatusCode != http.StatusOK || !strings.Contains(string(body), want) {
 			t.Errorf("GET %s: status %d, want body containing %q", path, resp.StatusCode, want)
 		}
-		if got := resp.Header.Get("Cache-Control"); got != "no-cache" {
-			t.Errorf("GET %s: Cache-Control %q, want %q", path, got, "no-cache")
-		}
+	}
+}
+
+func TestIndexPinsAppJS(t *testing.T) {
+	srv := newServer(t)
+	resp, err := http.Get(srv.URL + "/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if got := resp.Header.Get("Cache-Control"); got != "no-cache" {
+		t.Errorf("GET /: Cache-Control %q, want %q", got, "no-cache")
+	}
+
+	js, err := publicFS.ReadFile("public/app.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sum := sha256.Sum256(js)
+	want := `src="/app.js?v=` + hex.EncodeToString(sum[:6]) + `"`
+	if !strings.Contains(string(body), want) {
+		t.Errorf("GET /: want body containing %s", want)
+	}
+
+	// The pinned URL must still serve the script
+	resp, err = http.Get(srv.URL + "/app.js?v=" + hex.EncodeToString(sum[:6]))
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("GET pinned app.js: status %d", resp.StatusCode)
 	}
 }
 

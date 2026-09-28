@@ -1,7 +1,9 @@
 package main
 
 import (
+	"crypto/sha256"
 	"embed"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -9,6 +11,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 )
 
@@ -55,13 +58,16 @@ func newHandler() http.Handler {
 	}
 	client := newClient()
 
+	index := pinnedIndex(static)
+
 	mux := http.NewServeMux()
-	files := http.FileServerFS(static)
-	mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
-		// index.html loads a fixed /app.js, so anything allowed to cache it
-		// (including Cloudflare) keeps serving the old one after a deploy
+	mux.Handle("GET /", http.FileServerFS(static))
+	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
+		// Cloudflare doesn't cache HTML, but it does cache app.js whatever we
+		// send, so the page must always come fresh and name the current JS
 		w.Header().Set("Cache-Control", "no-cache")
-		files.ServeHTTP(w, r)
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Write(index)
 	})
 	mux.HandleFunc("GET /smh", func(w http.ResponseWriter, r *http.Request) {
 		body, err := fetch(client, r.URL.Query().Get("q"))
@@ -80,6 +86,26 @@ func newHandler() http.Handler {
 		w.Write(body)
 	})
 	return mux
+}
+
+// pinnedIndex returns index.html with app.js pinned to a hash of its content,
+// so a deploy that changes the JS also changes its URL and misses any cache.
+func pinnedIndex(static fs.FS) []byte {
+	index, err := fs.ReadFile(static, "index.html")
+	if err != nil {
+		panic(err)
+	}
+	js, err := fs.ReadFile(static, "app.js")
+	if err != nil {
+		panic(err)
+	}
+	sum := sha256.Sum256(js)
+	const tag = `src="/app.js"`
+	if strings.Count(string(index), tag) != 1 {
+		panic("index.html must load app.js exactly once, via " + tag)
+	}
+	pinned := fmt.Sprintf(`src="/app.js?v=%s"`, hex.EncodeToString(sum[:6]))
+	return []byte(strings.Replace(string(index), tag, pinned, 1))
 }
 
 // fetch returns the body of target, whatever the response status.
