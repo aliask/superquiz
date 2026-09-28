@@ -15,6 +15,79 @@ function findJSONFile(payload) {
     }
 }
 
+function findRiddleId(payload) {
+    const match = payload.match(/riddle\.com\/(?:view|embed\/a)\/([A-Za-z0-9]+)/) || payload.match(/data-rid-id="([A-Za-z0-9]+)"/)
+    return match ? match[1] : null
+}
+
+function stripHTML(html) {
+    const doc = new DOMParser().parseFromString(html, 'text/html')
+    return doc.body.textContent.trim()
+}
+
+// Unwrap a single block element (e.g. <h1>...</h1>) keeping inline formatting
+function unwrapHTML(html) {
+    const doc = new DOMParser().parseFromString(html, 'text/html')
+    const body = doc.body
+    if(body.children.length === 1 && body.textContent.trim() === body.firstElementChild.textContent.trim()) {
+        return body.firstElementChild.innerHTML.trim()
+    }
+    return body.innerHTML.trim()
+}
+
+function parseRiddleQuiz(html) {
+    const doc = new DOMParser().parseFromString(html, 'text/html')
+    const dataEl = doc.querySelector('#variable-data')
+    if(!dataEl) {
+        return null
+    }
+    const riddle = JSON.parse(dataEl.textContent)
+
+    const questions = riddle.blocks
+        .filter(block => block.type === 'Flashcard')
+        .map(block => {
+            // Description looks like "Question 1 of 15 Beginner - for 1 point"
+            const pointsMatch = stripHTML(block.content.description).match(/for\s+(\d+)\s+point/i)
+            return {
+                question: unwrapHTML(block.content.title),
+                answer: unwrapHTML(block.content.flashcard.backsideTitle),
+                level: pointsMatch ? parseInt(pointsMatch[1]) : 1
+            }
+        })
+
+    return {
+        config: {
+            name: riddle.title || 'Quiz'
+        },
+        data: questions
+    }
+}
+
+function parseNextDataQuiz(html) {
+    const doc = new DOMParser().parseFromString(html, 'text/html')
+    const dataEl = doc.querySelector('#__NEXT_DATA__')
+    if(!dataEl) {
+        return null
+    }
+    const node = JSON.parse(dataEl.textContent)?.props?.pageProps?.node
+    if(!node || !Array.isArray(node.field_questions)) {
+        return null
+    }
+
+    // The page title is just the first question, so name the quiz after the edition instead
+    const edition = node.field_edition?.title
+    return {
+        config: {
+            name: edition ? `The Saturday Paper Quiz, ${edition}` : (doc.querySelector('title')?.textContent || 'Quiz')
+        },
+        data: node.field_questions.map(item => ({
+            question: unwrapHTML(item.field_question?.processed || ''),
+            answer: item.field_answer?.processed || '',
+            level: 1
+        }))
+    }
+}
+
 function updatePoints() {
     let score = 0
     document.querySelectorAll(".correct").forEach(item => {
@@ -144,26 +217,47 @@ function parseQuestionsFromDOM(html) {
     }
 }
 
-function loadQuiz(url) {
-    fetch('/smh?q=' + encodeURIComponent(url))
-        .then(response => response.text())
-        .then(data => {
-            // First, try to find JSON file (existing behavior)
-            jsonFile = findJSONFile(data)
+async function fetchViaProxy(url) {
+    const response = await fetch('/smh?q=' + encodeURIComponent(url))
+    return response.text()
+}
+
+async function loadQuiz(url) {
+    try {
+        const data = await fetchViaProxy(url)
+        let quiz = null
+
+        // SMH/Age: quiz embedded via Riddle
+        const riddleId = findRiddleId(data)
+        if(riddleId) {
+            quiz = parseRiddleQuiz(await fetchViaProxy(`https://www.riddle.com/embed/a/${riddleId}`))
+        }
+
+        // SMH/Age: legacy interactive JSON config
+        if(!quiz) {
+            const jsonFile = findJSONFile(data)
             if(jsonFile) {
-                fetch('/smh?q=' + encodeURIComponent(jsonFile))
-                .then(response => response.json())
-                .then(displayQuiz)
-            } else {
-                // If no JSON found, try parsing DOM elements
-                const domQuiz = parseQuestionsFromDOM(data)
-                if(domQuiz && domQuiz.data.length > 0) {
-                    displayQuiz(domQuiz)
-                } else {
-                    alert("Couldn't find Quiz data on requested page.")
-                }
+                quiz = JSON.parse(await fetchViaProxy(jsonFile))
             }
-        })
+        }
+
+        // Saturday Paper: Next.js page data, then legacy DOM markup
+        if(!quiz) {
+            quiz = parseNextDataQuiz(data)
+        }
+        if(!quiz) {
+            quiz = parseQuestionsFromDOM(data)
+        }
+
+        if(quiz && quiz.data.length > 0) {
+            displayQuiz(quiz)
+        } else {
+            alert("Couldn't find Quiz data on requested page.")
+        }
+    } catch (err) {
+        console.error('Error loading quiz:', err)
+        alert("Couldn't load quiz from requested page.")
+    }
 }
 
 const tagQuery = `

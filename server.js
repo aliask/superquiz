@@ -16,7 +16,13 @@ router.get('/', function(req,res){
 
 router.get('/smh', async function(req, res, next) {
     try {
-        const apiResponse = await (await fetch(req.query.q)).text()
+        const url = new URL(req.query.q)
+        const headers = {}
+        // Riddle refuses to serve embeds unless it can see the embedding domain
+        if(url.hostname.endsWith('riddle.com')) {
+            headers['Referer'] = 'https://www.smh.com.au/'
+        }
+        const apiResponse = await (await fetch(url, { headers })).text()
         res.send(apiResponse)
     } catch (err) {
         console.log(err)
