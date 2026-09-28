@@ -1,6 +1,8 @@
 name: Build image
 on:
   push:
+  # Allows a rebuild from the UI, e.g. to pick up a new base image.
+  workflow_dispatch:
 
 jobs:
   build:
