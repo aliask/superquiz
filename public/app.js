@@ -25,14 +25,32 @@ function stripHTML(html) {
     return doc.body.textContent.trim()
 }
 
-// Unwrap a single block element (e.g. <h1>...</h1>) keeping inline formatting
+const BLOCK_ELEMENTS = 'h1, h2, h3, h4, h5, h6, p, div'
+
+// Reduce editor markup to inline text, keeping deliberate formatting like <em>.
+// Riddle wraps every line in <h1>, sometimes bolds the whole line and
+// sometimes leaves a trailing <p><br></p>.
 function unwrapHTML(html) {
     const doc = new DOMParser().parseFromString(html, 'text/html')
     const body = doc.body
-    if(body.children.length === 1 && body.textContent.trim() === body.firstElementChild.textContent.trim()) {
-        return body.firstElementChild.innerHTML.trim()
+
+    body.querySelectorAll(BLOCK_ELEMENTS).forEach(el => {
+        if(!el.textContent.trim()) {
+            el.remove()
+        }
+    })
+    body.querySelectorAll(BLOCK_ELEMENTS).forEach(el => {
+        el.replaceWith(...el.childNodes, ' ')
+    })
+
+    // Bold across the whole line is the editor's inconsistency, not emphasis
+    const significant = () => [...body.childNodes].filter(node => node.nodeType !== Node.TEXT_NODE || node.textContent.trim())
+    while(significant().length === 1 && ['STRONG', 'B'].includes(significant()[0].nodeName)) {
+        const el = significant()[0]
+        el.replaceWith(...el.childNodes)
     }
-    return body.innerHTML.trim()
+
+    return body.innerHTML.replace(/^(\s|&nbsp;)+|(\s|&nbsp;)+$/g, '')
 }
 
 function parseRiddleQuiz(html) {
