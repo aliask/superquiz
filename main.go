@@ -56,7 +56,13 @@ func newHandler() http.Handler {
 	client := newClient()
 
 	mux := http.NewServeMux()
-	mux.Handle("GET /", http.FileServerFS(static))
+	files := http.FileServerFS(static)
+	mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
+		// index.html loads a fixed /app.js, so anything allowed to cache it
+		// (including Cloudflare) keeps serving the old one after a deploy
+		w.Header().Set("Cache-Control", "no-cache")
+		files.ServeHTTP(w, r)
+	})
 	mux.HandleFunc("GET /smh", func(w http.ResponseWriter, r *http.Request) {
 		body, err := fetch(client, r.URL.Query().Get("q"))
 		if err != nil {

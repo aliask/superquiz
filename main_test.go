@@ -32,6 +32,9 @@ func TestStaticFiles(t *testing.T) {
 		if resp.StatusCode != http.StatusOK || !strings.Contains(string(body), want) {
 			t.Errorf("GET %s: status %d, want body containing %q", path, resp.StatusCode, want)
 		}
+		if got := resp.Header.Get("Cache-Control"); got != "no-cache" {
+			t.Errorf("GET %s: Cache-Control %q, want %q", path, got, "no-cache")
+		}
 	}
 }
 
